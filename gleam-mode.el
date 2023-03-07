@@ -95,7 +95,33 @@
 (add-to-list 'auto-mode-alist '("\\.gleam" . gleam-mode))
 
 ;;;###autoload
-(define-derived-mode gleam-mode prog-mode "Gleam"
+(define-derived-mode gleam-base-mode prog-mode "Gleam"
+  "Major mode for Gleam.
+
+Key bindings:
+\\{gleam-mode-map}"
+
+  ;;; Configure Emacs settings
+  (setq-local indent-tabs-mode nil)
+
+  ;; Comment settings
+  (setq-local comment-start "// ")
+  (setq-local comment-end "")
+  (setq-local comment-start-skip "//+ *")
+  (setq-local comment-use-syntax t)
+  (setq-local comment-auto-fill-only-comments t)
+
+  ;; Register compilation error format
+  (add-to-list 'compilation-error-regexp-alist-alist '(gleam "┌─ \\([^ ]+\\.gleam\\):\\([0-9]+\\):\\([0-9]+\\)" 1 2 3))
+  (add-to-list 'compilation-error-regexp-alist 'gleam)
+
+  ;; Imenu settings
+  (setq-local imenu-generic-expression gleam-imenu-generic-expression)
+  (setq-local imenu-case-fold-search nil))
+
+
+;;;###autoload
+(define-derived-mode gleam-mode gleam-base-mode "Gleam"
   "Major mode for Gleam.
 
 Key bindings:
@@ -214,6 +240,87 @@ Key bindings:
   (with-temp-buffer
     (insert-file-contents gleam-mode--highlights-query-file)
     (buffer-string)))
+
+
+(defvar gleam--treesit-settings
+  (treesit-font-lock-rules
+   :feature 'comment
+   :language 'gleam
+   '((module_comment) @font-lock-comment-face
+     (statement_comment) @font-lock-comment-face
+     (comment) @font-lock-comment-face)
+
+   :feature 'const
+   :language 'gleam
+   '((constant name: (identifier) @font-lock-constant-face))
+
+   :feature 'types
+   :language 'gleam
+   '((remote_type_identifier) @font-lock-type-face
+     (type_identifier) @font-lock-type-face)
+
+   :feature 'data-constructors
+   :language 'gleam
+   '((constructor_name) @font-lock-constant-face)
+
+   :feature 'literals
+   :language 'gleam
+   '((string) @font-lock-string-face
+     (bit_string_segment_option) @font-lock-builtin-face
+     (integer) @font-lock-number-face
+     (float) @font-lock-number-face)
+
+   :feature 'variables
+   :language 'gleam
+   '((identifier) @font-lock-variable-name-face
+     (discard) @font-lock-comment-face)
+
+   :feature 'keywords
+   :language 'gleam
+   '([
+      (visibility_modifier)
+      (opacity_modifier)
+      "as"
+      "assert"
+      "case"
+      "const"
+      "external"
+      "fn"
+      "if"
+      "import"
+      "let"
+      "todo"
+      "try"
+      "type"
+      "use"
+      ] @font-lock-keyword-face)
+
+   :feature 'punctuation
+   :language 'gleam
+   '(["(" ")" "[" "]" "{" "}" "<<" ">>"] @font-lock-bracket-face
+     ["." "," ":" "#" "=" "->" ".." "-" "<-"] @font-lock-delimiter-face)
+
+   :feature 'error
+   :language 'gleam
+   '((ERROR) @font-lock-warning-face))
+  "Tree-sitter font-lock settings for `gleam-ts-mode'.")
+
+;;;###autoload
+(define-derived-mode gleam-ts-mode gleam-base-mode "Gleam TS"
+  "Major mode for Gleam.
+
+Key bindings:
+\\{gleam-mode-map}"
+  (when (treesit-ready-p 'gleam)
+    (treesit-parser-create 'gleam)
+    (setq-local treesit-font-lock-settings gleam--treesit-settings)
+    (setq-local treesit-font-lock-feature-list
+		'((comment keywords punctuation)
+		  (literals variables data-constructors)
+		  (constant types)))
+    (treesit-major-mode-setup)
+
+    (add-to-list 'auto-mode-alist '("\\.gleam" . gleam-ts-mode))))
 
 (provide 'gleam-mode)
 ;;; gleam-mode.el ends here
